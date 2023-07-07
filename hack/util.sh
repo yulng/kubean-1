@@ -561,7 +561,7 @@ function util::power_on_vm_first(){
   util::restore_vsphere_vm_snapshot ${VSPHERE_HOST} ${VSPHERE_PASSWD} ${VSPHERE_USER} "${SNAPSHOT_NAME}" "${vm_name1}"
   sleep 20
   util::wait_ip_reachable "${vm_ip_addr1}" 30
-  ping -c 5 ${vm_ip_addr1}
+  ping -c 15 ${vm_ip_addr1}
 }
 
 function util::power_on_vm_second(){

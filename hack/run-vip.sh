@@ -31,6 +31,52 @@ function func_prepare_config_yaml_3node() {
 
 }
 
+function func_prepare_config_yaml_one_node() {
+    local source_path=$1
+    local dest_path=$2
+    rm -fr "${dest_path}"
+    mkdir "${dest_path}"
+    cp -f "${source_path}"/hosts-conf-cm.yml  "${dest_path}"/hosts-conf-cm.yml
+    cp -f "${source_path}"/vars-conf-cm.yml  "${dest_path}"
+    cp -f "${source_path}"/kubeanCluster.yml  "${dest_path}"
+    cp -f "${source_path}"/kubeanClusterOps.yml  "${dest_path}"
+    sed -i "s/root_password/${AMD_ROOT_PASSWORD}/g" ${dest_path}/hosts-conf-cm.yml
+    sed -i "s#image:#image: ${SPRAY_JOB}#" "${dest_path}"/kubeanClusterOps.yml
+}
+
+####################### non root users create a work cluster ################
+echo "non root users create a work cluster....."
+export OS_NAME="CENTOS7"
+echo "OS_NAME: ${OS_NAME}"
+util::power_on_vm_first ${OS_NAME}
+
+go_test_path="test/kubean_non_root_user_create_cluster"
+dest_config_path="${REPO_ROOT}"/test/kubean_non_root_user_create_cluster/e2e-install-cluster
+echo "dest_config_path:${dest_config_path}"
+
+rm -f ~/.ssh/known_hosts
+echo "==> scp sonobuoy bin to master: "
+sshpass -p ${AMD_ROOT_PASSWORD} scp -o StrictHostKeyChecking=no ${REPO_ROOT}/test/tools/sonobuoy root@$vm_ip_addr1:/usr/bin/
+sshpass -p ${AMD_ROOT_PASSWORD} ssh root@$vm_ip_addr1 "chmod +x /usr/bin/sonobuoy"
+sshpass -p ${AMD_ROOT_PASSWORD} ssh root@$vm_ip_addr1 "hash=\$(echo -n 'dangerous@123' | openssl passwd -crypt -stdin); useradd --password \$hash nonroot"
+
+func_prepare_config_yaml_one_node "${SOURCE_CONFIG_PATH}"  "${dest_config_path}"
+
+CLUSTER_OPERATION_NAME1="cluster1-non-root-"`date "+%H-%M-%S"`
+sed -i "s/e2e-cluster1-install/${CLUSTER_OPERATION_NAME1}/"  "${dest_config_path}"/kubeanClusterOps.yml
+# sed -i "s/root_password/${AMD_ROOT_PASSWORD}/g" ${dest_path}/hosts-conf-cm.yml
+sed -i "s/root/nonroot/" "${dest_config_path}"/hosts-conf-cm.yml
+sed -e "/^ *ip:/ s/$/ ${vm_ip_addr1}/" -e "/^ *access_ip:/ s/$/ ${vm_ip_addr1}/" -e "/^ *ansible_host:/s/$/ ${vm_ip_addr1}/" hosts-conf-cm.yml
+
+ginkgo -v -race -timeout=3h  --fail-fast ./${go_test_path}  -- --kubeconfig="${KUBECONFIG_FILE}" \
+          --clusterOperationName="${CLUSTER_OPERATION_NAME1}"  --vmipaddr="${vm_ip_addr1}" --vmipaddr2="${vm_ip_addr2}" \
+          --isOffline="${OFFLINE_FLAG}" --arch=${ARCH}  --vmPassword="${AMD_ROOT_PASSWORD}"
+
+
+
+
+
+
 ####################### create vip cluster ################
 echo "create vip cluster....."
 export OS_NAME="CENTOS7"
@@ -40,7 +86,6 @@ util::power_on_2vms ${OS_NAME}
 export OS_NAME="CENTOS7-3MASTER"
 echo "OS_NAME: ${OS_NAME}"
 util::power_on_third_vms ${OS_NAME}
-echo "this:"
 go_test_path="test/kubean_3master_vip_e2e"
 dest_config_path="${REPO_ROOT}"/test/kubean_3master_vip_e2e/e2e-install-cluster
 echo "dest_config_path:${dest_config_path}"
