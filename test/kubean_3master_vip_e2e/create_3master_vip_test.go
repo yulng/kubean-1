@@ -97,7 +97,7 @@ var _ = ginkgo.Describe("Create 3master cluster", func() {
 			}
 			fmt.Println("matchedNodes is", matchedNodes)
 
-			// reboot vip node ok
+			// reboot vip node ok ok
 			newMasterCmd := tools.RemoteSSHCmdArrayByPasswd(password, []string{rootNode, "nohup", "reboot", ">", "/dev/null", "2>&1", "&"})
 			out, _ := tools.NewDoCmd("sshpass", newMasterCmd...)
 			if out.Len() == 0 {
